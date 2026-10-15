@@ -261,6 +261,10 @@ public:
     double dwellStartTime = -1;
     double dwellDuration = 0;
 
+    /** Free flow speed override */
+    bool rlFreeFlowSpeedOverrideEnabled = false;
+    double rlFreeFlowSpeedOverrideValue = 0.0;
+
     /**
      * \brief This constructor initializes a train with the passed parameters
      *
