@@ -874,22 +874,55 @@ std::pair<bool, double> Locomotive::consumeFuel(
 }
 
 
+// double Locomotive::getResistance(double trainSpeed)
+// {
+//     // these calculations depend of US units, so these are the
+//     // conversions factors from meteric system
+//     double rVal = 0.0;
+//     double speed = trainSpeed * 2.23694;
+//     rVal = 1.5 + 18 / ((this->currentWeight * 1.10231) /
+//                 this->noOfAxiles) + 0.03 * speed
+//         + (this->frontalArea * 10.7639) * this->dragCoef * (pow(speed, 2)) /
+//                  (this->currentWeight * 1.10231);
+//     rVal = (rVal) *
+//                ((this->currentWeight * 1.10231)) + 20 *
+//                (this->currentWeight * 1.10231) * (this->trackGrade);
+//     rVal += abs(this->trackCurvature) * 20 * 0.04 *
+//                (this->currentWeight * 1.10231);
+//     rVal *= (4.44822);
+//     return rVal;
+// }
+
 double Locomotive::getResistance(double trainSpeed)
 {
-    // these calculations depend of US units, so these are the
-    // conversions factors from meteric system
-    double rVal = 0.0;
-    double speed = trainSpeed * 2.23694;
-    rVal = 1.5 + 18 / ((this->currentWeight * 1.10231) /
-                this->noOfAxiles) + 0.03 * speed
-        + (this->frontalArea * 10.7639) * this->dragCoef * (pow(speed, 2)) /
-                 (this->currentWeight * 1.10231);
-    rVal = (rVal) *
-               ((this->currentWeight * 1.10231)) + 20 *
-               (this->currentWeight * 1.10231) * (this->trackGrade);
-    rVal += abs(this->trackCurvature) * 20 * 0.04 *
-               (this->currentWeight * 1.10231);
-    rVal *= (4.44822);
+    // Convert train speed from m/s to km/h for the Grebenyuk formula (u)
+    double u = trainSpeed * 3.6;
+
+    // Convert locomotive weight from metric tonnes to kg (m)
+    double m = this->currentWeight * 1000.0;
+
+    // Acceleration due to gravity (m/s^2)
+    const double g = 9.80665;
+
+    // Weight force in Newtons (mg)
+    double mg = m * g;
+
+    // 1. Grebenyuk (1987) rolling and aerodynamic resistance
+    double grebenyukRes = (1.1 + 0.01 * u + 0.000227 * (u * u)) * mg * 1e-3;
+
+    // 2. Grade resistance
+    double gradeRes = mg * (this->trackGrade / 100.0);
+
+    // 3. Curve resistance (Roeckl formula)
+    double radius = std::abs(this->trackCurvature);
+    double curveRes = 0.0;
+    if (radius > 55.0) {
+        curveRes = (6.3 * mg / 1000.0) / (radius - 55.0);
+    }
+
+    // Total resistance in Newtons
+    double rVal = grebenyukRes + gradeRes + curveRes;
+
     return rVal;
 }
 
