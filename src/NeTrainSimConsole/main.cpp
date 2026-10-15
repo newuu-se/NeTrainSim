@@ -208,6 +208,10 @@ int main(int argc, char *argv[])
             "OptimizationSpeedFactor", "0.0");
     parser.addOption(optimizationSpeedPriorityFactor);
 
+    const QCommandLineOption interactiveOption(QStringList() << "I" << "interactive",
+                                               QCoreApplication::translate("main", "[Optional] enable interactive RL mode (JSON over stdin/stdout)."));
+    parser.addOption(interactiveOption);
+
     // process all the arguments
     parser.process(app);
 
@@ -235,6 +239,7 @@ int main(int argc, char *argv[])
     double optimize_speedfactor = 0.0;
     int    optimizerFrequency   = 0;
     int    lookahead            = 0;
+    bool   interactiveMode      = false;
 
     // read values from the cmd
     // read required values
@@ -379,6 +384,8 @@ int main(int argc, char *argv[])
     {
         optimize_speedfactor = 0.0;
     }
+
+    interactiveMode = parser.isSet(interactiveOption);
 
     try
     {
