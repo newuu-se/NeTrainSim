@@ -1,2 +1,1 @@
-Need to update Davis equation like before (in https://github.com/newuu-se/china-grant-rl-model-2025)
-But make 100% sure about correcness - code review helps!
+Bring real data collected by Prof. Sirojiddin, which is currently in this repository: https://github.com/newuu-se/train-routes
