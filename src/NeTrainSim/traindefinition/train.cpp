@@ -23,6 +23,7 @@ Train::Train(
     double trainStartTime_sec, double frictionCoeff,
     Vector<std::shared_ptr<Locomotive>> locomotives,
     Vector<std::shared_ptr<Car>> cars, bool optimize,
+    double desiredDecelerationRate_mPs,
     double operatorReactionTime_s, bool stopIfNoEnergy,
     double maxAllowedJerk_mPcs, double optimization_k,
     int runOptimizationEvery,
@@ -30,6 +31,7 @@ Train::Train(
     : QObject(nullptr)
 {
 
+    this->d_des = desiredDecelerationRate_mPs;
     this->operatorReactionTime = operatorReactionTime_s;
     this->stopTrainIfNoEnergy  = stopIfNoEnergy;
     this->maxJerk              = maxAllowedJerk_mPcs;
@@ -66,7 +68,7 @@ Train::Train(
                                      Map<int, double>()));
     Train::NumberOfTrainsInSimulator++;
     this->T_s = this->operatorReactionTime
-                + (this->totalLength / this->brakePipePropagationSpeed);
+                + (this->totalLength / this->speedOfSound);
 
     for (auto &car : this->cars)
     {
@@ -141,15 +143,6 @@ void Train::setTrainPath(Vector<int> path)
                                      Map<int, double>()));
 }
 
-void Train::resetRLOverrides() {
-    rlFreeFlowSpeedOverrideEnabled = false;
-    rlFreeFlowSpeedOverrideValue = 0.0;
-    for (auto& loco : locomotives) {
-        loco->rlOverrideEnabled = false;
-        loco->rlOverrideThrottle = 0.0;
-    }
-}
-
 // ##################################################################
 // #                        start: utilities #
 // ##################################################################
@@ -178,19 +171,6 @@ int Train::getActiveLocomotivesNumber()
 double Train::getMinFollowingTrainGap()
 {
     return DefaultMinFollowingGap;
-}
-
-double Train::getDesiredDeceleration(double speed)
-{
-    double totalBrakingForce = 0.0;
-    for (auto &vehicle : this->trainVehicles)
-    {
-        totalBrakingForce += vehicle->getBrakingForce(speed);
-    }
-    double d_physical = totalBrakingForce / this->totalMass;
-    double d = DefaultServiceBrakingFactor * d_physical;
-    double d_max = this->coefficientOfFriction * this->g;
-    return std::max(MinDesiredDeceleration, std::min(d, d_max));
 }
 
 double Train::getBatteryEnergyConsumed()
@@ -660,17 +640,15 @@ double Train::getSafeGap(double initialGap, double speed,
     double gap_lad = 0;
     if (!estimate)
     {
-        double d = this->getDesiredDeceleration(speed);
         gap_lad = initialGap + T_s * speed
                   + (Utils::power(speed, 2)
-                     / (2.0 * d));
+                     / (2.0 * this->d_des));
     }
     else
     {
-        double d = this->getDesiredDeceleration(freeFlowSpeed);
         gap_lad = initialGap + T_s * freeFlowSpeed
                   + (Utils::power(freeFlowSpeed, 2)
-                     / (2.0 * d));
+                     / (2.0 * this->d_des));
     };
     return gap_lad;
 }
@@ -800,12 +778,11 @@ double Train::get_acceleration_an2(
     double gap, double minGap, double speed,
     double leaderSpeed, double T_s, double frictionCoef)
 {
-    double d = this->getDesiredDeceleration(speed);
     double term = 0.0;
     term        = Utils::power(Utils::power(speed, 2)
                                    - Utils::power(leaderSpeed, 2),
                                2)
-           / (4.0 * d);
+           / (4.0 * this->d_des);
     term =
         term / Utils::power(max((gap - minGap), 0.0001), 2);
     return min(term, frictionCoef * this->g);

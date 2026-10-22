@@ -307,6 +307,7 @@ double Locomotive::getThrottleLevel(double & trainSpeed,
                                     bool &optimize,
                                     double &optimumThrottleLevel)
 {
+    if (rlOverrideEnabled) { return rlOverrideThrottle; }
 	double currentThrottleLevel = 0;
 	double throttleL = 0;
 	throttleL = getDiscretizedThrottleCoef(trainSpeed);
@@ -324,6 +325,7 @@ double Locomotive::getThrottleLevel(double & trainSpeed,
 
 void Locomotive::updateLocNotch(double &trainSpeed)
 {
+    if (rlOverrideEnabled) { return; }
 	if (trainSpeed == 0.0 || !this->isLocOn) { this->currentLocNotch = 0; }
 	else {
 		// get the discretized Throttle Level and compare it to the list
@@ -418,36 +420,17 @@ double Locomotive::getRegenerativeEffeciency(
                          double& trainAcceleration,
                          double &trainSpeed)
 {
-    // if it is a regenerative locomotive, regenerate energy
-    if (TrainTypes::locomotiveRechargableTechnologies.exist(this->powerType)) {
-        // get regenerative eff
-        double regenerativeEff = 0;
-        //if there is an deceleration value, calculate the eff directly
-        if (trainAcceleration != 0) {
-            regenerativeEff = (1 / (exp(EC::gamma/ abs(trainAcceleration))));
-        }
-        //if the deceleration is zero, we cannot divide by zero
-        else {
-            //Calculate virtual acceleration
-            double virtualAcceleration = LocomotiveVirtualTractivePower /
-                                         (trainSpeed * this->currentWeight);
-            // calculate regenerative eff
-            //if virtual deceleration is not zero, calculate eff
-            // from virtual deceleration
-            if (virtualAcceleration != 0) {
-                regenerativeEff = 1 / (exp(EC::gamma /
-                                           abs(virtualAcceleration)));
-            }
-            else {
-                regenerativeEff = 0.0;
-            }
-        }
-        return regenerativeEff;
-    }
-    // if it is diesel-electric, do no regenerate electricity
-    else {
-        return 0.0;
-    }
+    // Regenerative braking removed (project requirement): the locomotive recovers
+    // NO energy during braking/deceleration for any power type, so braking is
+    // purely dissipative. Returning 0 efficiency makes the negative (braking)
+    // tractive-power term contribute 0 in getEnergyConsumption /
+    // getEnergyConsumptionAtDCBus, so only auxiliary power is drawn while braking.
+    // (Previously: rechargeable types returned 1/exp(gamma/|accel|); see git
+    // history to restore.)
+    (void)LocomotiveVirtualTractivePower;
+    (void)trainAcceleration;
+    (void)trainSpeed;
+    return 0.0;
 }
 
 double Locomotive::getEnergyConsumptionAtDCBus(
@@ -543,16 +526,12 @@ double Locomotive::getEnergyConsumption(double& LocomotiveVirtualTractivePower,
 		return EC;
 	}
     else {
-        // Blended braking: only the dynamic portion (motor as generator) is recoverable.
-        // Friction braking energy is dissipated as heat.
-        double recoverablePower =
-            -this->getRecoverableBrakingPower(tractivePower, trainSpeed);
-
+        // get regenerative eff
         double regenerativeEff =
             this->getRegenerativeEffeciency(tractivePower,
                                             trainAcceleration, trainSpeed);
 
-        return ((recoverablePower * regenerativeEff + this->auxiliaryPower) *
+        return ((tractivePower * regenerativeEff + this->auxiliaryPower) *
                 EC::getDriveLineEff(trainSpeed,
                                     this->currentLocNotch,
                                     std::abs(powerPortion),
@@ -572,25 +551,6 @@ double Locomotive::getUsedPowerPortion(double trainSpeed,
     // it is limited because at the begining of the deceleration, the
     // power is very high
     return std::min((LocomotiveVirtualTractivePower) / maxPower, 1.0);
-}
-
-double Locomotive::getRecoverableBrakingPower(double totalBrakingPower,
-                                              double trainSpeed)
-{
-    if (!TrainTypes::locomotiveRechargableTechnologies.exist(this->powerType)) {
-        return 0.0;
-    }
-
-    // Motor's max dynamic braking power is approximately its rated traction power
-    double maxDynamicPower = this->maxPower * 1000.0; // kW to W
-
-    // Dynamic braking fades linearly below 15 km/h (motor can't generate
-    // sufficient back-EMF at very low speeds)
-    double v_kmh = trainSpeed * 3.6;
-    double fadeFactor = std::min(v_kmh / EC::DynamicBrakingFadeSpeed_kmh, 1.0);
-    maxDynamicPower *= fadeFactor;
-
-    return std::min(std::abs(totalBrakingPower), maxDynamicPower);
 }
 
 double Locomotive::getMaxRechargeEnergy(double timeStep, double trainSpeed,

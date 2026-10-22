@@ -89,13 +89,15 @@ public:
 	double throttleLevel;
 	/** The throttle levels */
 	Vector<double> throttleLevels;
+    /** When true, getThrottleLevel returns rlOverrideThrottle directly,
+     *  bypassing both the speed-discretized governor and the A* optimizer. */
+    bool rlOverrideEnabled = false;
+    double rlOverrideThrottle = 0.0;
 	/** (Immutable) the gravitation acceleration */
 	const double g = 9.8067;
 
     double usedPowerPortion = 0.0;
 
-    bool rlOverrideEnabled = false;
-    double rlOverrideThrottle = 0.0;
 
 	/**
 	 * !
@@ -482,20 +484,6 @@ public:
      */
     double getUsedPowerPortion(double trainSpeed,
                                double LocomotiveVirtualTractivePower);
-
-    /**
-     * @brief Gets the recoverable dynamic braking power, capped at motor capacity.
-     *
-     * @details In blended braking, only the dynamic braking portion (motor as generator)
-     * produces recoverable energy. This is capped at the motor's rated power and
-     * fades linearly below 15 km/h where dynamic braking becomes ineffective.
-     *
-     * @param totalBrakingPower  The total braking power magnitude in Watts (positive).
-     * @param trainSpeed         The current train speed in m/s.
-     * @returns The recoverable dynamic braking power in Watts (positive value).
-     */
-    double getRecoverableBrakingPower(double totalBrakingPower,
-                                      double trainSpeed);
 
     void rechargeBatteryByMaxFlow(double timeStep, double trainSpeed,
                                   double powerPortion,

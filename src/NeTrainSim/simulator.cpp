@@ -582,11 +582,6 @@ void Simulator::playTrainOneTimeStep(std::shared_ptr <Train> train)
 		// the max speed the train cannot go higher than
 		double currentFreeFlowSpeed = std::min(currentLinkFreeSpeed, freeFlowSpeed.min());
 
-	    // Apply RL free flow speed override if enabled
-	    if (train->rlFreeFlowSpeedOverrideEnabled) {
-	        currentFreeFlowSpeed = std::min(currentFreeFlowSpeed, train->rlFreeFlowSpeedOverrideValue);
-	    }
-
 		// set the train memorization parameters to speed up the calculations later
 		train->previousNodeID = this->network->getPreviousNodeByDistance(train, train->travelledDistance, train->previousNodeID)->id;
 		double lastTrainTipTravelledDistance = train->travelledDistance - train->totalLength;
@@ -1148,12 +1143,6 @@ void Simulator::runOneTimeStep() {
 
         this->playTrainOneTimeStep(t);
     }
-    for (std::shared_ptr<Train>& t : trainsToSimulate) {
-        if (!t->reachedDestination) {
-            t->rlFreeFlowSpeedOverrideEnabled = false;
-            t->rlFreeFlowSpeedOverrideValue = 0.0;
-        }
-    }
 
     if (plotFrequency > 0.0 && ((int(this->simulationTime) * 10) % (plotFrequency * 10)) == 0) {
         Vector<std::pair<std::string, Vector<std::pair<double,double>>>> trainsStartEndPoints;
@@ -1183,7 +1172,7 @@ void Simulator::initializeSimulator(bool emitSignal)
         generateSummaryData();
         exportSummaryToTXTFile();
         finalizeSimulation();
-    });
+    }, Qt::DirectConnection);
 
     // define trajectory file and set it up
     if (this->exportTrajectory) {

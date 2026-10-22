@@ -182,13 +182,6 @@ void NeTrainSim::setupGenerals(){
         this->replotHistoryLinks();
     });
 
-    // Replot when switching tabs so that plots on previously hidden
-    // tabs receive their data once visible and laid out.
-    connect(ui->tabWidget_project, &QTabWidget::currentChanged, [this]() {
-        this->replotHistoryNodes();
-        this->replotHistoryLinks();
-    });
-
     // show error if tables has only 1 row
     connect(ui->table_newNodes, &CustomTableWidget::cannotDeleteRow,
             [this]() {
@@ -294,12 +287,9 @@ void NeTrainSim::setupPage1(){
     // add graphs to the plot
     ui->plot_createNetwork->addGraph();
     ui->plot_createNetwork->addGraph();
-    // disable viewing the axes and remove auto margins so the axis rect
-    // always has positive inner dimensions (even on hidden tabs)
+    // disable viewing the axies
     ui->plot_createNetwork->xAxis->setVisible(false);
     ui->plot_createNetwork->yAxis->setVisible(false);
-    ui->plot_createNetwork->axisRect()->setAutoMargins(QCP::msNone);
-    ui->plot_createNetwork->axisRect()->setMargins(QMargins(5, 5, 5, 5));
 
 
     // get the nodes file
@@ -555,12 +545,9 @@ void NeTrainSim::forceReplotLinks() {
 
 
 void NeTrainSim::setupPage2(){
-    // disable viewing the axes and remove auto margins so the axis rect
-    // always has positive inner dimensions (even on hidden tabs)
+    // disable viewing the axies
     ui->plot_trains->xAxis->setVisible(false);
     ui->plot_trains->yAxis->setVisible(false);
-    ui->plot_trains->axisRect()->setAutoMargins(QCP::msNone);
-    ui->plot_trains->axisRect()->setMargins(QMargins(5, 5, 5, 5));
 
     // show the layout as a default
     ui->widget_oldTrainOD->show();
@@ -772,12 +759,9 @@ void NeTrainSim::setupPage3(){
     simulatorWidgetSizes << 229 << 700;
     ui->splitter_simulator->setSizes(simulatorWidgetSizes);
 
-    // disable viewing the axes and remove auto margins so the axis rect
-    // always has positive inner dimensions (even on hidden tabs)
+    // disable viewing the axies
     ui->plot_simulation->xAxis->setVisible(false);
     ui->plot_simulation->yAxis->setVisible(false);
-    ui->plot_simulation->axisRect()->setAutoMargins(QCP::msNone);
-    ui->plot_simulation->axisRect()->setMargins(QMargins(5, 5, 5, 5));
 
     // add graphs to the plot
     auto nodegraph = ui->plot_simulation->addGraph();
@@ -1530,6 +1514,7 @@ void NeTrainSim::updateNodesPlot(CustomPlot &plot, QVector<double>xData,
 
     // clear the graph data
     graph->data()->clear();
+    plot.replot();
 
     if (xData.size() < 1) { return; }
     if (xData.size() != yData.size()) {
@@ -1591,6 +1576,7 @@ void NeTrainSim::updateNodesPlot(CustomPlot &plot, QVector<double>xData,
     }
 
     plot.resetZoom();
+    //plot.replot();
 };
 
 /**
@@ -1783,6 +1769,7 @@ void NeTrainSim::updateLinksPlot(CustomPlot &plot,
     QCPGraph *graph = plot.graph(1);
 
     graph->data()->clear();
+    plot.replot();
 
     if (startNodeIDs.size() != endNodeIDs.size() ||
         startNodeIDs.size() < 1 || this->networkNodes.size() < 1) {
@@ -1814,6 +1801,7 @@ void NeTrainSim::updateLinksPlot(CustomPlot &plot,
     graph->setPen(QPen(Qt::blue, 2));
 
     plot.resetZoom();
+    //plot.replot();
 };
 
 /**

@@ -81,8 +81,10 @@ public:
 	 * Car object, including its weight, number of axles, frontal area, drag coefficient, track
 	 * grade, and track curvature.
 	 * @f{eqnarray*}
-	 * Resistance = (1.5 + \frac{18}{axileWeight} + 0.03 * speed + \frac{frontalArea * dragCoef*
-	 * speed^2}{vehicleWeight}) * totalWeight + 20 * vehicleWeight (trackGrade + 0.04 * curvature)\\
+	 * Resistance = (1.1 + 0.01 \cdot v + 0.000227 \cdot v^2) \cdot W_{kN}
+	 *            + trackGrade \cdot 10 \cdot W_{kN}
+	 *            + |curvature| \cdot \frac{700}{1746.4} \cdot W_{kN} \\
+	 * \text{where } v \text{ [km/h]},\ W_{kN} = mass_{tonnes} \times 9.81 \text{ [kN]}
 	 * @f}
 	 *
 	 * @author	Ahmed
