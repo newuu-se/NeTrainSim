@@ -1,0 +1,2 @@
+Need to update Davis equation like before (in https://github.com/newuu-se/china-grant-rl-model-2025)
+But make 100% sure about correcness - code review helps!
