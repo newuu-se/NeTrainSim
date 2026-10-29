@@ -261,6 +261,21 @@ public:
     double dwellStartTime = -1;
     double dwellDuration = 0;
 
+    /** Interactive speed control (console -I mode), set before every step.
+     *  When enabled, the train follows min(speed limit, target speed), or
+     *  coasts with zero traction when rlCoast is true. */
+    bool rlSpeedControl = false;
+    /** True if the train coasts (zero traction) this step. */
+    bool rlCoast = false;
+    /** The target speed in m/s, used when rlTargetFraction is not set. */
+    double rlTargetSpeed = 0.0;
+    /** The target speed as a fraction of the current speed limit (0, 1]. */
+    double rlTargetFraction = 0.0;
+    /** The speed limit before the target cap was applied (m/s). */
+    double rlSpeedLimit = 0.0;
+    /** The speed cap the train followed in the last step (m/s). */
+    double rlAppliedCap = 0.0;
+
     /**
      * \brief This constructor initializes a train with the passed parameters
      *

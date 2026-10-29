@@ -43,8 +43,8 @@ QString getHomeDirectory()
 		const QString documentsDir = QDir(homeDir).filePath("Documents");
 		const QString folder = QDir(documentsDir).filePath("NeTrainSim");
 
-		QDir().mkpath(folder); // Create the directory if it doesn't exist
-
+		// not created here: openTrajectoryFile/openSummaryFile create the output
+		// folder when a file is written, so an -o folder leaves Documents untouched
 		return folder;
 	}
 
@@ -232,6 +232,7 @@ void Simulator::setExportInstantaneousTrajectory(bool exportInstaTraject, string
 // If it fails to open the file, it throws an exception.
 void Simulator::openTrajectoryFile() {
 	try {
+		QDir().mkpath(this->outputLocation); // Create the directory if it doesn't exist
 		// Open the trajectory file to write the step trajectory data
 		this->trajectoryFile.open(QDir(this->outputLocation).
 								  filePath(QString::fromStdString(this->trajectoryFilename)).
@@ -261,6 +262,7 @@ std::string Simulator::getOutputFolder() {
 // If it fails to open the file, it throws an exception.
 void Simulator::openSummaryFile() {
 	try {
+		QDir().mkpath(this->outputLocation); // Create the directory if it doesn't exist
 		// open the summary file to write the summary data
 		this->summaryFile.open(QDir(this->outputLocation).
 							   filePath(QString::fromStdString(this->summaryFileName)).toStdString(),
@@ -581,6 +583,19 @@ void Simulator::playTrainOneTimeStep(std::shared_ptr <Train> train)
 		}
 		// the max speed the train cannot go higher than
 		double currentFreeFlowSpeed = std::min(currentLinkFreeSpeed, freeFlowSpeed.min());
+		// the speed limit itself, kept for the delay statistics
+		double speedLimit = currentFreeFlowSpeed;
+		// interactive speed control: the target speed lowers the cap. the cap drops by at most
+		// the service deceleration per step, so the speed is never cut in a single step
+		if (train->rlSpeedControl && !train->rlCoast) {
+			double targetSpeed = (train->rlTargetFraction > 0.0) ?
+				train->rlTargetFraction * speedLimit : train->rlTargetSpeed;
+			double cap = std::max(targetSpeed, train->currentSpeed -
+				train->getDesiredDeceleration(train->currentSpeed) * this->timeStep);
+			currentFreeFlowSpeed = std::min(currentFreeFlowSpeed, cap);
+		}
+		train->rlSpeedLimit = speedLimit;
+		train->rlAppliedCap = currentFreeFlowSpeed;
 
 		// set the train memorization parameters to speed up the calculations later
 		train->previousNodeID = this->network->getPreviousNodeByDistance(train, train->travelledDistance, train->previousNodeID)->id;
@@ -721,13 +736,13 @@ void Simulator::playTrainOneTimeStep(std::shared_ptr <Train> train)
 		}
 		// handle when the train reaches its destinations
         if (train->reachedDestination) {
-			train->calcTrainStats(freeFlowSpeed, currentFreeFlowSpeed, this->timeStep, train->currentFirstLink->region);
+			train->calcTrainStats(freeFlowSpeed, speedLimit, this->timeStep, train->currentFirstLink->region);
 		}
 		// handles when the train still has distance to travel
 		else {
 			train->currentCoordinates = this->network->getPositionbyTravelledDistance(train, train->travelledDistance);
 			train->startEndPoints = this->getStartEndPoints(train, train->currentCoordinates);
-			train->calcTrainStats(freeFlowSpeed, currentFreeFlowSpeed, this->timeStep, train->currentFirstLink->region);
+			train->calcTrainStats(freeFlowSpeed, speedLimit, this->timeStep, train->currentFirstLink->region);
 
 			// holds track data and speed
             tuple<Vector<double>, Vector<double>, Vector<double>, Vector<std::shared_ptr<NetLink>>> linksdata;
@@ -757,7 +772,7 @@ void Simulator::playTrainOneTimeStep(std::shared_ptr <Train> train)
                        << train->travelledDistance << ","
                        << train->currentAcceleration << ","
                        << train->currentSpeed << ","
-                       << currentFreeFlowSpeed << ","
+                       << speedLimit << ","
                        << train->energyStat << ","
                        << train->maxDelayTimeStat << ","
                        << train->delayTimeStat << ","
@@ -1167,12 +1182,16 @@ void Simulator::initializeSimulator(bool emitSignal)
     qDebug() << "Initializing the simulation!";
 
 
+    // DirectConnection: write the summary and close the trajectory in the thread
+    // that finishes the run. Queued to the simulator's worker thread, it raced the
+    // console program's exit, which crashed and lost the summary and the
+    // trajectory's last lines.
     connect(this, &Simulator::simulationFinished,
             this, [this]() {
         generateSummaryData();
         exportSummaryToTXTFile();
         finalizeSimulation();
-    });
+    }, Qt::DirectConnection);
 
     // define trajectory file and set it up
     if (this->exportTrajectory) {

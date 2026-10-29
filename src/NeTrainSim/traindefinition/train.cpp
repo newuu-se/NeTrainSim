@@ -583,6 +583,12 @@ void Train::updateLocNotch()
                  it = this->locomotives.begin();
              it != this->locomotives.end(); ++it)
         {
+            // a coasting train drives with no notch
+            if (this->rlSpeedControl && this->rlCoast)
+            {
+                it->get()->currentLocNotch = 0;
+                continue;
+            }
             it->get()->updateLocNotch(this->currentSpeed);
         }
     }
@@ -621,6 +627,12 @@ double Train::getTotalTractiveForce(
              this->locomotives.begin();
          it != this->locomotives.end(); ++it)
     {
+        // a coasting train has no traction
+        if (this->rlSpeedControl && this->rlCoast)
+        {
+            it->get()->currentTractiveForce = 0.0;
+            continue;
+        }
         it->get()->currentTractiveForce =
             it->get()->getTractiveForce(
                 this->coefficientOfFriction, speed,
@@ -991,6 +1003,20 @@ double Train::getStepAcceleration(
                 (leaderSpeed)[newIndx], freeFlowSpeed,
                 timeStep, this->optimize);
         }
+    }
+
+    // under interactive speed control the train cannot accelerate
+    // more than its traction allows. accelerate() returns ~0 instead
+    // of a negative amax when a slower critical point is far away,
+    // which would hold the speed while coasting or on steep grades.
+    if (this->rlSpeedControl)
+    {
+        double amax = this->getAccelerationUpperBound(
+            this->currentSpeed, this->currentAcceleration,
+            freeFlowSpeed, this->optimize,
+            this->optimumThrottleLevel);
+        nonsmoothedAcceleration =
+            min(nonsmoothedAcceleration, amax);
     }
 
     if (nonsmoothedAcceleration < 0.0
