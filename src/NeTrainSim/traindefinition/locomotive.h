@@ -94,6 +94,8 @@ public:
 
     double usedPowerPortion = 0.0;
 
+    bool rlOverrideEnabled = false;
+    double rlOverrideThrottle = 0.0;
 
 	/**
 	 * !

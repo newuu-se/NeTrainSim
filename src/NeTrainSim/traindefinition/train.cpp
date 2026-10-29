@@ -141,6 +141,15 @@ void Train::setTrainPath(Vector<int> path)
                                      Map<int, double>()));
 }
 
+void Train::resetRLOverrides() {
+    rlFreeFlowSpeedOverrideEnabled = false;
+    rlFreeFlowSpeedOverrideValue = 0.0;
+    for (auto& loco : locomotives) {
+        loco->rlOverrideEnabled = false;
+        loco->rlOverrideThrottle = 0.0;
+    }
+}
+
 // ##################################################################
 // #                        start: utilities #
 // ##################################################################

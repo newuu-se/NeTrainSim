@@ -582,13 +582,18 @@ void Simulator::playTrainOneTimeStep(std::shared_ptr <Train> train)
 		// the max speed the train cannot go higher than
 		double currentFreeFlowSpeed = std::min(currentLinkFreeSpeed, freeFlowSpeed.min());
 
+	    // Apply RL free flow speed override if enabled
+	    if (train->rlFreeFlowSpeedOverrideEnabled) {
+	        currentFreeFlowSpeed = std::min(currentFreeFlowSpeed, train->rlFreeFlowSpeedOverrideValue);
+	    }
+
 		// set the train memorization parameters to speed up the calculations later
 		train->previousNodeID = this->network->getPreviousNodeByDistance(train, train->travelledDistance, train->previousNodeID)->id;
 		double lastTrainTipTravelledDistance = train->travelledDistance - train->totalLength;
 		if (lastTrainTipTravelledDistance < 0.0) { lastTrainTipTravelledDistance = 0.0; }
 		int LastTrainTipPreviousNodeID;
 		LastTrainTipPreviousNodeID = (train->LastTrainPointpreviousNodeID <= 0.0) ? train->trainPath[0] : train->LastTrainPointpreviousNodeID;
-		train->LastTrainPointpreviousNodeID = this->network->getPreviousNodeByDistance(train, 
+		train->LastTrainPointpreviousNodeID = this->network->getPreviousNodeByDistance(train,
 			lastTrainTipTravelledDistance, LastTrainTipPreviousNodeID)->id;
 // ##################################################################
 // #                      start: critical points                    #
@@ -602,12 +607,12 @@ void Simulator::playTrainOneTimeStep(std::shared_ptr <Train> train)
 		// the map has the train point ids as keys and its speed as its values
 		Map<int, double> lowerSpeedsNs = this->getAllLowerSpeedsIDs(train, train->previousNodeID, nextStoppingNodeID);
 
-		// this tuple defines the critical points in the train path. the critical points include 
+		// this tuple defines the critical points in the train path. the critical points include
 		// 1. lower speed links (critical point is the start of the link),
 		// 2. leading trains (critical point is the end of the train),
 		// 3. stopping station or depot.
-		// The tuple takes 3 vectors: 
-		// 1. vector 0 is for distances to critical point, 
+		// The tuple takes 3 vectors:
+		// 1. vector 0 is for distances to critical point,
 		// 2. vector 1 is a bool indicating the critical point is a train,
 		// 3. vector 2 is for speed of the critical point.
         tuple<Vector<double>, Vector<bool>, Vector<double>> criticalPointsDefinition;
@@ -627,7 +632,7 @@ void Simulator::playTrainOneTimeStep(std::shared_ptr <Train> train)
 			std::get<2>(criticalPointsDefinition).push_back(trainAheadWithDistance.first->currentSpeed);
 		}
 		// add the stopping station to the list
-		double distanceToStop = this->network->getDistanceToSpecificNodeByTravelledDistance(train, 
+		double distanceToStop = this->network->getDistanceToSpecificNodeByTravelledDistance(train,
 			train->travelledDistance, nextStoppingNodeID);
 		std::get<0>(criticalPointsDefinition).push_back(distanceToStop);
 		std::get<1>(criticalPointsDefinition).push_back(false);
@@ -930,14 +935,14 @@ void Simulator::defineSignalsGroups(double& minSafeDistance) {
 			this->signalsGroups[n] = s;
 		}
 	}
-	
+
 }
 
 void Simulator::calculateSignalsProximities() {
 	for (auto &s : this->network->networkSignals) {
 		Vector<double> proximity;
 		for (auto &t : this->trains) {
-			if (t->trainPathNodes.exist(std::shared_ptr<NetNode>(s->currentNode)) && 
+			if (t->trainPathNodes.exist(std::shared_ptr<NetNode>(s->currentNode)) &&
 				t->trainPathNodes.exist(std::shared_ptr<NetNode>(s->previousNode))) {
                 proximity.push_back(t->getSafeGap(t->getMinFollowingTrainGap(),
                                                   t->currentSpeed, s->link.lock()->freeFlowSpeed,
@@ -971,7 +976,7 @@ Vector<Vector< Map<int, std::set<std::shared_ptr<NetNode>>>>> Simulator::getNode
 			// loop over all intersecting nodes
 			for (int i = 0; i < trainIntersections.size() - 1; i++) {
 				int nextI = i + 1;
-				double d = this->network->getDistanceBetweenTwoNodes(this->trains.at(t1i), 
+				double d = this->network->getDistanceBetweenTwoNodes(this->trains.at(t1i),
 					trainIntersections.at(i), trainIntersections.at(nextI));
 
 				// if the distance is short or the section has only 1 link, it is a conflict
@@ -979,8 +984,8 @@ Vector<Vector< Map<int, std::set<std::shared_ptr<NetNode>>>>> Simulator::getNode
                 if ((d < minSafeDistance) || (this->network->isConflictZone(this->trains.at(t1i),
                                                                             trainIntersections.at(i),
 																			trainIntersections.at(nextI)))) {
-					G[gn].insert(trainIntersections.at(i)); 
-					G[gn].insert(trainIntersections.at(nextI)); 
+					G[gn].insert(trainIntersections.at(i));
+					G[gn].insert(trainIntersections.at(nextI));
 				}
 				else {
 					G[gn].insert(trainIntersections.at(i));
@@ -1009,7 +1014,7 @@ Vector<std::set<std::shared_ptr<NetNode>>> Simulator::unionNodesIntersectionsFor
 				for (int j = 0; j < unified.size(); j++){
 					isUnified = false;
 					std::set<std::shared_ptr<NetNode>> intersections;
-					std::set_intersection(g.at(i).begin(), g.at(i).end(), 
+					std::set_intersection(g.at(i).begin(), g.at(i).end(),
 											unified.at(j).begin(), unified.at(j).end(),
 											std::inserter(intersections, intersections.begin()));
 					if (!intersections.empty()) {
@@ -1142,6 +1147,12 @@ void Simulator::runOneTimeStep() {
         }
 
         this->playTrainOneTimeStep(t);
+    }
+    for (std::shared_ptr<Train>& t : trainsToSimulate) {
+        if (!t->reachedDestination) {
+            t->rlFreeFlowSpeedOverrideEnabled = false;
+            t->rlFreeFlowSpeedOverrideValue = 0.0;
+        }
     }
 
     if (plotFrequency > 0.0 && ((int(this->simulationTime) * 10) % (plotFrequency * 10)) == 0) {
