@@ -129,11 +129,7 @@ double Car::getResistance(double trainSpeed) {
     double gradeRes = mg * (this->trackGrade / 100.0);
 
     // 3. Curve resistance (Roeckl formula)
-    double radius = std::abs(this->trackCurvature);
-    double curveRes = 0.0;
-    if (radius > 55.0) {
-        curveRes = (6.3 * mg / 1000.0) / (radius - 55.0);
-    }
+    double curveRes = 7.0 * std::abs(this->trackCurvature) * mg * 1e-3;
 
     // Total resistance in Newtons
     double rVal = grebenyukRes + gradeRes + curveRes;
